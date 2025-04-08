@@ -1,0 +1,8 @@
+*.csv
+*.txt
+*.html
+
+strava_env/
+strava_data_dumps/
+*.twb
+*.twbr
