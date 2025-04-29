@@ -3,6 +3,7 @@
 *.html
 strava_env/
 strava_data_dumps/
+output/
 *.twb
 *.twbr
 *.duckdb
