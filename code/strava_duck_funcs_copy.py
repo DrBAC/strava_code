@@ -1,7 +1,7 @@
 
 import pandas as pd
 import os
-import glob
+import gzip
 import duckdb
 from fitparse import FitFile
 
@@ -35,74 +35,52 @@ def create_tables():
 
     print("✅ Tables created fresh.")
 
-
-def get_next_id(table_name, id_column):
-    """Find the next available ID for a table."""
-    result = con.execute(f"SELECT MAX({id_column}) FROM {table_name}").fetchone()[0]
-    return 1 if result is None else result + 1
     
 
 def parse_fit_file(filepath):
 
     """Parse a .fit file into a list of records."""
-    
+    entries = []
     try:
         fitfile = FitFile(filepath)
+        for record in fitfile.get_messages('record'):
+            data = {d.name: d.value for d in record}
+            data['activity_id'] = str(file)[:-7]
+            entries.append(data)
+            df = pd.DataFrame(entries)
+    
     except Exception as e:
         print(f"⚠️ Failed to parse {filepath}: {e}")
-        return []
 
-    entries = []
-    for record in fitfile.get_messages('record'):
-        timestamp = None
-        metrics = []
-
-        for field in record:
-            if field.name == 'timestamp':
-                timestamp = field.value
-            elif field.name in IMPORTANT_FIELDS and field.value is not None:
-                metrics.append((field.name, field.value))
-
-        if timestamp:
-            for field_name, field_value in metrics:
-                entries.append({
-                    'timestamp': timestamp,
-                    'field_name': field_name,
-                    'field_value': field_value
-                })
-
-    return entries
+    return df
 
 def build_all_fit_logs():
 
     """Parse all .fit files into one big DataFrame of logs."""
-    activities_df = pd.read_sql("SELECT activity_id, fit_filename FROM activities", con)
 
     all_logs = []
+    
+    for root, dirs, files in os.walk(FIT_FILES_FOLDER):
 
-    fit_files = glob.glob(os.path.join(FIT_FILES_FOLDER, '*.fit.gz'))
+        for file in files:
 
-    for filepath in fit_files:
-        filename = os.path.basename(filepath)
-        match = activities_df[activities_df['fit_filename'] == filename]
+            if file.endswith('.fit.gz'):
+                file_path = os.path.join(root, file)
+                print(f'fit file! {file_path}')
+                
+                
+                with gzip.open(file_path, 'rb') as f:
+                    
+                    logs = parse_fit_file(f) # USE THE FITFILE PARSER FUNCTION ABOVE!!!
 
-        if match.empty:
-            print(f"⚠️ No matching activity for {filename}")
-            continue
-
-        activity_id = match.iloc[0]['activity_id']
-        logs = parse_fit_file(filepath) # USE THE FITFILE PARSER FUNCTION ABOVE!!!
-
-        if not logs:
-            continue
-
-        for log in logs:
-            log['activity_id'] = activity_id
 
         all_logs.extend(logs)
 
     print(f"✅ Parsed {len(all_logs)} total log entries from FIT files.")
+    
     return pd.DataFrame(all_logs)
+
+
 
 def bulk_insert_fit_logs(df_logs):
     """Bulk insert fit logs with auto-incremented log_ids."""
