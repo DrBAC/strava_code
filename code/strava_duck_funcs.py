@@ -23,7 +23,7 @@ con = duckdb.connect(DB_FILE)
 def create_tables():
     """Create activities and fit_logs tables (DuckDB compatible)."""
     con.execute("DROP TABLE IF EXISTS activities")
-    con.execute("DROP TABLE IF EXISTS fit_logs")
+    #con.execute("DROP TABLE IF EXISTS fit_logs")
 
     con.execute("""
         CREATE TABLE activities (

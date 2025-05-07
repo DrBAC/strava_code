@@ -35,50 +35,53 @@ def create_tables():
 
     print("✅ Tables created fresh.")
 
-    
 
-def parse_fit_file(filepath):
+def semicircles_to_degrees(semicircles):
+
+    """
+    Converts lat/long from the fit format of semicircle --> normal lat/longs
+    """
+
+    return semicircles * (180 / 2**31)
+
+
+def parse_fit_file(directory):
 
     """Parse a .fit file into a list of records."""
-    entries = []
-    try:
-        fitfile = FitFile(filepath)
-        for record in fitfile.get_messages('record'):
-            data = {d.name: d.value for d in record}
-            data['activity_id'] = str(file)[:-7]
-            entries.append(data)
-            df = pd.DataFrame(entries)
-    
-    except Exception as e:
-        print(f"⚠️ Failed to parse {filepath}: {e}")
 
-    return df
+    fit_files = []
 
-def build_all_fit_logs():
 
-    """Parse all .fit files into one big DataFrame of logs."""
-
-    all_logs = []
-    
-    for root, dirs, files in os.walk(FIT_FILES_FOLDER):
+    for root, dirs, files in os.walk(directory):
 
         for file in files:
 
             if file.endswith('.fit.gz'):
                 file_path = os.path.join(root, file)
-                print(f'fit file! {file_path}')
-                
-                
+                all_records = []
                 with gzip.open(file_path, 'rb') as f:
-                    
-                    logs = parse_fit_file(f) # USE THE FITFILE PARSER FUNCTION ABOVE!!!
+                    fitfile = FitFile(f)
+                    for record in fitfile.get_messages('record'):
+                        data = {d.name: d.value for d in record}
+                        data['activity_id'] = str(file)[:-7]
+                        all_records.append(data)
+                # Convert to DataFrame
+                df = pd.DataFrame(all_records)
+                try:
+                    df['lat'] = df['position_lat'].apply(semicircles_to_degrees)
+                    df['long'] = df['position_long'].apply(semicircles_to_degrees)
+                except:
+                    pass
+                fit_files.append(df)
+                print(f'fit file! {file_path}\n All parsed ')
+            
+            else:
+                file_path = os.path.join(root, file)
+                print(f'other file! {file_path}\n -- IGNORING FOR NOW')
 
-
-        all_logs.extend(logs)
-
-    print(f"✅ Parsed {len(all_logs)} total log entries from FIT files.")
+    fit_df = pd.concat(fit_files, ignore_index=True)
     
-    return pd.DataFrame(all_logs)
+    return fit_df
 
 
 
