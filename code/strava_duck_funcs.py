@@ -1,19 +1,16 @@
 
 import pandas as pd
-#import os
-#import glob
 import duckdb
-from strava_duck_funcs import *
-#from fitparse import FitFile
-
+from fitparse import FitFile
+import os
+import gzip
 
 # --- CONFIGURATION ---
 
-DB_FILE = '../outputs/strava_test_1.duckdb'
+DB_FILE = '../outputs/strava_export.duckdb'
 
-#FIT_FILES_FOLDER = 'path/to/your/fit_files/'
+FIT_FILES_FOLDER = '/Users/bac/Documents/PYTHON_PROJECTS/Strava_Analysis/strava_data_dumps/STRAVA+export_8029714/activities/'
 
-IMPORTANT_FIELDS = ['heart_rate', 'cadence', 'speed']
 
 # Connect to DuckDB
 con = duckdb.connect(DB_FILE)
@@ -23,7 +20,7 @@ con = duckdb.connect(DB_FILE)
 def create_tables():
     """Create activities and fit_logs tables (DuckDB compatible)."""
     con.execute("DROP TABLE IF EXISTS activities")
-    #con.execute("DROP TABLE IF EXISTS fit_logs")
+    con.execute("DROP TABLE IF EXISTS fit_logs")
 
     con.execute("""
         CREATE TABLE activities (
@@ -52,23 +49,22 @@ def create_tables():
         )
     """)
 
-    # con.execute("""
-    #     CREATE TABLE fit_logs (
-    #         log_id BIGINT,
-    #         activity_id BIGINT,
-    #         timestamp TIMESTAMP,
-    #         field_name TEXT,
-    #         field_value DOUBLE
-    #     )
-    # """)
+    con.execute("""
+        CREATE TABLE fit_logs (
+                
+            activity_id BIGINT,
+            timestamp TIMESTAMP,
+            long DOUBLE,
+            lat DOUBLE,
+            distance DOUBLE,
+            enhanced_altitude DOUBLE,
+                speed DOUBLE,
+                gps_accuracy DOUBLE,
+                heart_rate DOUBLE
+        )
+    """)
 
     print("✅ Tables created fresh.")
-
-
-def get_next_id(table_name, id_column):
-    """Find the next available ID for a table."""
-    result = con.execute(f"SELECT MAX({id_column}) FROM {table_name}").fetchone()[0]
-    return 1 if result is None else result + 1
 
 
 def bulk_insert_activities(csv_path):
@@ -102,92 +98,72 @@ def bulk_insert_activities(csv_path):
         """)
     
 
+def semicircles_to_degrees(semicircles):
+
+    """
+    Converts lat/long from the fit format of semicircle --> normal lat/longs
+    """
+
+    return semicircles * (180 / 2**31)
 
 
+def parse_fit_file(directory):
+
+    """Parse a .fit file into a list of records."""
+
+    fit_files = []
 
 
+    for root, dirs, files in os.walk(directory):
+
+        for file in files:
+
+            if file.endswith('.fit.gz'):
+                file_path = os.path.join(root, file)
+                all_records = []
+                with gzip.open(file_path, 'rb') as f:
+                    fitfile = FitFile(f)
+                    for record in fitfile.get_messages('record'):
+                        data = {d.name: d.value for d in record}
+                        data['activity_id'] = str(file)[:-7]
+                        all_records.append(data)
+                # Convert to DataFrame
+                df = pd.DataFrame(all_records)
+                try:
+                    df['lat'] = df['position_lat'].apply(semicircles_to_degrees)
+                    df['long'] = df['position_long'].apply(semicircles_to_degrees)
+                except Exception as e:
+                    print(e)
+                    pass
+                fit_files.append(df)
+                print(f'fit file! {file_path}\n All parsed ')
+            
+            else:
+                file_path = os.path.join(root, file)
+                print(f'other file! {file_path}\n -- IGNORING FOR NOW')
+
+    fit_df = pd.concat(fit_files, ignore_index=True)
+    
+    return fit_df
 
 
+def bulk_insert_fit_logs(df_logs):
+    """Bulk insert fit logs with auto-incremented log_ids."""
 
-# def parse_fit_file(filepath):
-#     """Parse a .fit file into a list of records."""
-#     try:
-#         fitfile = FitFile(filepath)
-#     except Exception as e:
-#         print(f"⚠️ Failed to parse {filepath}: {e}")
-#         return []
+    if df_logs.empty:
+        print("⚠️ No logs to insert.")
+        return
 
-#     entries = []
-#     for record in fitfile.get_messages('record'):
-#         timestamp = None
-#         metrics = []
+    #next_id = get_next_id('fit_logs', 'log_id')
+    #df_logs.insert(0, 'log_id', range(next_id, next_id + len(df_logs)))
 
-#         for field in record:
-#             if field.name == 'timestamp':
-#                 timestamp = field.value
-#             elif field.name in IMPORTANT_FIELDS and field.value is not None:
-#                 metrics.append((field.name, field.value))
+    con.register('temp_fit_logs', df_logs)
 
-#         if timestamp:
-#             for field_name, field_value in metrics:
-#                 entries.append({
-#                     'timestamp': timestamp,
-#                     'field_name': field_name,
-#                     'field_value': field_value
-#                 })
+    con.execute("""
+        INSERT INTO fit_logs (activity_id, timestamp, long, lat, distance, enhanced_altitude, speed, gps_accuracy, heart_rate)
+        SELECT activity_id, timestamp, long, lat, distance, enhanced_altitude, speed, gps_accuracy, heart_rate
+        FROM temp_fit_logs
+    """)
 
-#     return entries
+    print(f"✅ Inserted {len(df_logs)} logs starting at ID meh")
 
-# def build_all_fit_logs():
-#     """Parse all .fit files into one big DataFrame of logs."""
-#     activities_df = pd.read_sql("SELECT activity_id, fit_filename FROM activities", con)
-
-#     all_logs = []
-
-#     fit_files = glob.glob(os.path.join(FIT_FILES_FOLDER, '*.fit'))
-
-#     for filepath in fit_files:
-#         filename = os.path.basename(filepath)
-#         match = activities_df[activities_df['fit_filename'] == filename]
-
-#         if match.empty:
-#             print(f"⚠️ No matching activity for {filename}")
-#             continue
-
-#         activity_id = match.iloc[0]['activity_id']
-#         logs = parse_fit_file(filepath)
-
-#         if not logs:
-#             continue
-
-#         for log in logs:
-#             log['activity_id'] = activity_id
-
-#         all_logs.extend(logs)
-
-#     print(f"✅ Parsed {len(all_logs)} total log entries from FIT files.")
-#     return pd.DataFrame(all_logs)
-
-# def bulk_insert_fit_logs(df_logs):
-#     """Bulk insert fit logs with auto-incremented log_ids."""
-#     if df_logs.empty:
-#         print("⚠️ No logs to insert.")
-#         return
-
-#     next_id = get_next_id('fit_logs', 'log_id')
-#     df_logs.insert(0, 'log_id', range(next_id, next_id + len(df_logs)))
-
-#     df_logs.to_sql('fit_logs', con, if_exists='append', index=False)
-#     print(f"✅ Inserted {len(df_logs)} logs starting at ID {next_id}")
-
-# def test_query():
-#     """Query activities joined with fit_logs."""
-#     df = con.execute("""
-#         SELECT a.name, f.timestamp, f.field_name, f.field_value
-#         FROM activities a
-#         JOIN fit_logs f ON a.activity_id = f.activity_id
-#         ORDER BY a.activity_id, f.timestamp
-#         LIMIT 10
-#     """).fetchdf()
-#     print("\n🎯 Sample joined data:")
-#     print(df)
