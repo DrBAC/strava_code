@@ -1,0 +1,24 @@
+# Environment & credentials
+.env
+
+# Database files
+*.duckdb
+*.duckdb.wal
+
+# Virtual environment
+.venv/
+
+# Strava export (large personal data — share code, not data)
+STRAVA+export_8029714/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
