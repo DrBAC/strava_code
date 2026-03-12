@@ -41,18 +41,97 @@ _I will be removing any personally identifiable information in here before anyth
 
 ## Getting Started
 
-1. Clone the repository  
+1. Clone the repository
    ```bash
    git clone https://github.com/DrBAC/strava_code.git
+   cd strava_code
    ```
-2. Navigate to the project directory  
+2. Create and activate a virtual environment
    ```bash
-   cd sports-data-analysis
+   python3 -m venv .venv
+   source .venv/bin/activate
    ```
-3. Install dependencies  
+3. Install dependencies
    ```bash
    pip install -r requirements.txt
    ```
+4. Place your Strava data export folder in the project root (the folder should be named `STRAVA+export_XXXXXXX`)
+
+5. Run ingestion (DuckDB requires no further setup):
+   ```bash
+   python -m ingestion.run            # loads activities, routes, bikes
+   python -m ingestion.run --streams  # also parses GPS/HR/power time-series (slow)
+   ```
+
+6. Open the exploration notebook:
+   ```bash
+   jupyter notebook exploration.ipynb
+   ```
+   Select the **Python 3 (.venv)** kernel and set `DB_BACKEND = "duckdb"` in the first cell.
+
+---
+
+## PostgreSQL Setup (Mac)
+
+PostgreSQL is an optional alternative to DuckDB — useful if you want to connect Tableau or other BI tools that don't support DuckDB natively.
+
+### 1. Install PostgreSQL via Homebrew
+
+```bash
+brew install postgresql@14
+brew services start postgresql@14
+```
+
+Verify it's running:
+```bash
+psql --version
+psql postgres   # should open a SQL prompt; type \q to exit
+```
+
+### 2. Create the database
+
+```bash
+createdb strava
+```
+
+No password is needed for a local Homebrew installation — your macOS username is automatically a trusted superuser.
+
+### 3. Configure the .env file
+
+Copy the example file and edit it:
+```bash
+cp .env.example .env
+```
+
+For a standard local Mac install, the only line you need in `.env` is:
+```
+PG_DSN=postgresql://YOUR_MAC_USERNAME@localhost:5432/strava
+```
+
+Replace `YOUR_MAC_USERNAME` with the output of `whoami` in your terminal. No password field is required.
+
+### 4. Run ingestion to PostgreSQL
+
+```bash
+python -m ingestion.run --backend postgres
+python -m ingestion.run --backend postgres --streams
+```
+
+### 5. Connect Tableau
+
+In Tableau Desktop: **Connect → To a Server → PostgreSQL**
+
+| Field    | Value       |
+|----------|-------------|
+| Server   | `localhost` |
+| Port     | `5432`      |
+| Database | `strava`    |
+| Username | your macOS username |
+| Password | *(leave blank)* |
+
+> If Tableau reports a missing driver, go to **Help → Download Drivers** and install the PostgreSQL driver.
+
+---
 
 ## License
 
