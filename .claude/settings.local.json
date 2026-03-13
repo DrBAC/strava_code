@@ -19,7 +19,9 @@
       "Bash(.venv/bin/python -m ingestion.run --backend postgres 2>&1)",
       "Bash(.venv/bin/python -c \"\nimport psycopg2, pandas as pd\nconn = psycopg2.connect\\('postgresql://bac@localhost:5432/strava'\\)\nfor table in ['activities', 'saved_routes', 'saved_route_points', 'bikes']:\n    cur = conn.cursor\\(\\)\n    cur.execute\\(f'SELECT COUNT\\(*\\) FROM {table}'\\)\n    print\\(f'  {table:<25} {cur.fetchone\\(\\)[0]:>8,}'\\)\nconn.close\\(\\)\n\")",
       "Bash(.venv/bin/pip list:*)",
-      "Bash(git init:*)"
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git push:*)"
     ]
   }
 }

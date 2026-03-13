@@ -58,8 +58,10 @@ class DatabaseBackend(ABC):
         """Insert/replace bikes. Returns row count."""
 
     @abstractmethod
-    def append_streams(self, records: list[dict]) -> int:
-        """Bulk-insert stream records. Returns row count."""
+    def append_streams(
+        self, records: list[dict], table: str = "activity_streams"
+    ) -> int:
+        """Bulk-insert stream records into `table`. Returns row count."""
 
     @abstractmethod
     def log_ingestion(

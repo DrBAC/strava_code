@@ -79,12 +79,14 @@ class DuckDBBackend(DatabaseBackend):
         self._conn.execute("INSERT INTO bikes BY NAME SELECT * FROM df")
         return len(df)
 
-    def append_streams(self, records: list[dict]) -> int:
+    def append_streams(
+        self, records: list[dict], table: str = "activity_streams"
+    ) -> int:
         if not records:
             return 0
         df = pd.DataFrame(records)
         df["ts"] = pd.to_datetime(df["ts"], utc=True, errors="coerce")
-        self._conn.execute("INSERT INTO activity_streams SELECT * FROM df")
+        self._conn.execute(f"INSERT INTO {table} BY NAME SELECT * FROM df")
         return len(df)
 
     def log_ingestion(

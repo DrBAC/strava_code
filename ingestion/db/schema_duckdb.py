@@ -85,6 +85,25 @@ CREATE TABLE IF NOT EXISTS activity_streams (
 CREATE INDEX IF NOT EXISTS idx_streams_activity ON activity_streams (activity_id);
 CREATE INDEX IF NOT EXISTS idx_streams_ts       ON activity_streams (ts);
 
+CREATE TABLE IF NOT EXISTS activity_streams_private (
+    activity_id     BIGINT NOT NULL,
+    ts              TIMESTAMPTZ NOT NULL,
+    sequence        INTEGER,
+    lat             DOUBLE,
+    lon             DOUBLE,
+    altitude_m      DOUBLE,
+    distance_m      DOUBLE,
+    heart_rate_bpm  INTEGER,
+    power_w         INTEGER,
+    cadence_rpm     INTEGER,
+    speed_ms        DOUBLE,
+    temperature_c   DOUBLE,
+    source          VARCHAR
+);
+
+CREATE INDEX IF NOT EXISTS idx_private_streams_activity ON activity_streams_private (activity_id);
+CREATE INDEX IF NOT EXISTS idx_private_streams_ts       ON activity_streams_private (ts);
+
 CREATE TABLE IF NOT EXISTS saved_routes (
     route_name  VARCHAR PRIMARY KEY,
     filename    VARCHAR

@@ -150,7 +150,9 @@ class PostgreSQLBackend(DatabaseBackend):
         self._conn.commit()
         return len(df)
 
-    def append_streams(self, records: list[dict]) -> int:
+    def append_streams(
+        self, records: list[dict], table: str = "activity_streams"
+    ) -> int:
         if not records:
             return 0
         df = pd.DataFrame(records)
@@ -161,7 +163,7 @@ class PostgreSQLBackend(DatabaseBackend):
         with self._conn.cursor() as cur:
             psycopg2.extras.execute_values(
                 cur,
-                f"INSERT INTO activity_streams ({cols}) VALUES %s",
+                f"INSERT INTO {table} ({cols}) VALUES %s",
                 rows,
                 page_size=5000,
             )
