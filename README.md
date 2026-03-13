@@ -133,6 +133,81 @@ In Tableau Desktop: **Connect → To a Server → PostgreSQL**
 
 ---
 
+## GPS Privacy Anonymisation
+
+Strava exports contain your precise home address embedded in every activity that starts or ends there. This project includes a two-step anonymisation pipeline to remove that before any data is shared or published.
+
+### How it works
+
+**Step 1 — Home zone trimming:** GPS points within a configurable radius of your home are stripped from the start and end of every track. The activity simply begins and ends at the zone boundary, with no data inside the radius.
+
+**Step 2 — Anchor snapping:** Optionally, the first and last surviving GPS points are replaced with a specific public location of your choosing (e.g. a park entrance for runs, a road junction for rides). This gives each activity type a consistent, believable public start/end point.
+
+Results are written to a separate `activity_streams_private` table. The original `activity_streams` data is never modified — the process is fully reversible.
+
+### Setup
+
+**1. Set your home coordinates in `.env`:**
+
+Right-click your home on [Google Maps](https://maps.google.com) → *"What's here?"* to get the coordinates.
+
+```
+HOME_LAT=54.7601
+HOME_LON=-1.5514
+```
+
+**2. Configure zones and anchor points in `privacy/config.py`:**
+
+Open the file and edit the `ZONES` dictionary. Set `radius_m` for each activity type and, optionally, an `anchor` — the public location where that activity type will appear to start and end.
+
+```python
+ZONES = {
+    "Ride": {"radius_m": 500, "anchor": (54.7631, -1.5541)},  # e.g. a road junction
+    "Run":  {"radius_m": 300, "anchor": (54.7631, -1.5540)},  # e.g. a park entrance
+    "Walk": {"radius_m": 200, "anchor": None},                 # trim only, no snap
+    "default": {"radius_m": 300, "anchor": None},
+}
+```
+
+To find anchor coordinates: right-click any point in Google Maps → *"What's here?"*
+
+**3. Load stream data if you haven't already:**
+
+```bash
+python -m ingestion.run --streams            # DuckDB
+python -m ingestion.run --backend postgres --streams  # PostgreSQL
+```
+
+**4. Run anonymisation:**
+
+```bash
+python -m privacy.run                        # DuckDB (default)
+python -m privacy.run --backend postgres     # PostgreSQL
+python -m privacy.run --replace              # re-run from scratch with new settings
+python -m privacy.run --activity-id 12345678 # single activity (useful for testing)
+```
+
+### Using the anonymised data
+
+Use the `activity_streams_private` table in place of `activity_streams` for any visualisations, dashboards, or exports you intend to share. The activities table and all summary metrics are unaffected — only the GPS track endpoints are altered.
+
+| Table | Use for |
+|-------|---------|
+| `activity_streams` | Private analysis — contains real home location |
+| `activity_streams_private` | Sharing, Tableau dashboards, public notebooks |
+
+### Choosing good radius values
+
+| Activity | Suggested radius | Rationale |
+|----------|-----------------|-----------|
+| Ride | 400–600 m | Cyclists cover this quickly; a larger zone avoids revealing the street |
+| Run | 250–400 m | A couple of minutes of running |
+| Walk | 150–250 m | Slower pace, smaller zone still effective |
+
+If you are unsure, start with the defaults and run `--activity-id` on a known activity to inspect the result before processing everything.
+
+---
+
 ## License
 
 This project is licensed under the MIT License.
