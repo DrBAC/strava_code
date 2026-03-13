@@ -40,10 +40,10 @@ HOME_LON: float = float(_lon)
 #   "Ride": {"radius_m": 500, "anchor": (54.7612, -1.5734)},
 
 ZONES: dict[str, dict] = {
-    "Ride":          {"radius_m": 500, "anchor": None},
-    "MountainBikeRide": {"radius_m": 500, "anchor": None},
-    "Run":           {"radius_m": 300, "anchor": None},
-    "Walk":          {"radius_m": 200, "anchor": None},
+    "Ride":          {"radius_m": 500, "anchor": (54.76307, -1.55411)},
+    "MountainBikeRide": {"radius_m": 500, "anchor": (54.76307, -1.55411)},
+    "Run":           {"radius_m": 300, "anchor": (54.76306, -1.55399)},
+    "Walk":          {"radius_m": 200, "anchor": (54.75962, -1.55262)},
     "Hike":          {"radius_m": 200, "anchor": None},
     "default":       {"radius_m": 300, "anchor": None},
 }
@@ -54,3 +54,10 @@ assert "default" in ZONES, "ZONES must contain a 'default' key"
 def get_zone(activity_type: str) -> dict:
     """Return the privacy zone config for a given activity type."""
     return ZONES.get(activity_type) or ZONES["default"]
+
+
+ZONES = {
+      "Ride": {"radius_m": 500, "anchor": (54.76307, -1.55411)},  # e.g. a road junction
+      "Run":  {"radius_m": 300, "anchor": (54.76306, -1.55399)},  # e.g. a park entrance
+      "Walk": {"radius_m": 200, "anchor": (54.75962, -1.55262)},                 # trim only
+  }
